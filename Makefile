@@ -1,56 +1,41 @@
-AS86 = as86 -0 -a
-LD86 = ld86 -0
+CC		= gcc
+CFLAG	= -I include
+AS		= $(CC) $(CFLAG) -c
+LD		= ld -T tools/link.ld
 
-CC	= gcc -m32
-LD = ld -s -x -m elf_i386 -T link.ld
+usage:
+	@echo "Usage:" >&2
+	@echo "  make image     		build image file" >&2
+	@echo "  make install   		install kernel" >&2
+	@echo "  make clean     		delete all object files etc" >&2
+	@echo "  make uninstall   		delete kernel file" >&2
+	@echo "  make usage     		display this help" >&2
+	@echo "  make           		same as make usage" >&2
 
-AS	= as --32
+image: tools/build tools/boot
+	tools/build tools/boot > $@
 
-%: %.c
-	$(CC) $< -o $@
-
-%.o: %.s
-	$(AS) -o $@ $<
-
-%.o: %.c
-	$(CC) -c $< -o $@
-
-%.o: %.S
-	$(AS) $< -o $@
-
-all: 
-	make clean
-	make kernel
-
-kernel: tools/build boot/boot tools/system
-	tools/build boot/boot tools/system > $@
-
-tools/build: tools/build.c
-
-boot/boot: boot/boot.s
-	$(AS86) -o $@.o $<
-	$(LD86) -0 -s -o $@ $@.o
-
-tools/system: boot/head.o init/main.o
-	$(LD) $^ -o $@
-
-boot/head.o: boot/head.s
-
-init/main.o: init/main.c
+install: tools/install image
+	tools/install image
 
 clean:
-	rm -f init/*.o
-	rm -f boot/*.o
-	rm -f boot/boot
-	rm -f tools/build
+	(cd tools; make clean)
+	(cd boot; rm -f boot boot.o)
 
-hex:
-	make
-	hexdump -C kernel
-	make clean
+uninstall:
+	rm -f image
 
-test:
-	make clean
-	make
-	qemu-system-i386 -full-screen -fda kernel
-	make clean
+tools/boot: tools/elf boot/boot
+	tools/elf .text .data .bss boot/boot > $@
+
+boot/boot: 
+	(cd boot; make boot)
+
+tools/elf:
+	(cd tools; make elf)
+
+tools/build:
+	(cd tools; make build)
+
+tools/install:
+	(cd tools; make install)
